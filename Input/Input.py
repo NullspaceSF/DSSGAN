@@ -38,7 +38,9 @@ def get_multitrack_input(shape, batch_size, name="", input_shape=None):
 
     if input_shape is None:
         input_shape = shape
-    queue = tf.RandomShuffleQueue(capacity, min_after_dequeue, [tf.float32, tf.float32, tf.float32], [input_shape, shape, shape])
+    queue = tf.RandomShuffleQueue(capacity, min_after_dequeue, \
+            [tf.float32, tf.float32, tf.float32], [input_shape, shape, shape])
+
     input_batch = queue.dequeue_many(batch_size, name="input_batch" + name)
 
     return [m,a,d], queue, input_batch
@@ -84,27 +86,33 @@ def load_and_enqueue(sess, model_config, queue, enqueue_op, input_ph, song_list)
 
     for [mix, acc, drums] in song_list:
         try:
-            mix_mag, _ = audioFileToSpectrogram(mix.path, fftWindowSize=model_config["num_fft"], hopSize=model_config["num_hop"], expected_sr=model_config["expected_sr"], buffer=True)
-            mix_mag = np.pad(mix_mag, [(0, 0), (padding, padding)], mode='constant', constant_values=0.0) # Pad along time axis
+            mix_mag, _ = audioFileToSpectrogram(mix.path, fftWindowSize=model_config["num_fft"], \
+                hopSize=model_config["num_hop"], expected_sr=model_config["expected_sr"], buffer=True)
+            # Pad along time axis
+            mix_mag = np.pad(mix_mag, [(0, 0), (padding, padding)], mode='constant', constant_values=0.0) 
 
             if isinstance(acc, float):
                 acc_mag = np.zeros(mix_mag.shape, np.float32)
             else:
-                acc_mag, _ = audioFileToSpectrogram(acc.path, fftWindowSize=model_config["num_fft"], hopSize=model_config["num_hop"], expected_sr=model_config["expected_sr"], buffer=True)
+                acc_mag, _ = audioFileToSpectrogram(acc.path, fftWindowSize=model_config["num_fft"], \
+                            hopSize=model_config["num_hop"], expected_sr=model_config["expected_sr"], buffer=True)
+
             if isinstance(drums, float):
                 drum_mag = np.zeros(mix_mag.shape, np.float32)
             else:
-                drum_mag, _ = audioFileToSpectrogram(drums.path, fftWindowSize=model_config["num_fft"], hopSize=model_config["num_hop"], expected_sr=model_config["expected_sr"], buffer=True)
+                drum_mag, _ = audioFileToSpectrogram(drums.path, fftWindowSize=model_config["num_fft"], \
+                            hopSize=model_config["num_hop"], expected_sr=model_config["expected_sr"], buffer=True)
         except Exception as e:
             print("Error while computing spectrogram for file " + mix.path + ". Skipping")
             print(e)
             continue
-
+        print(drums.path)
+        print(mix.path)
         # Pad along the frequency axis
         mix_mag = Utils.pad_freqs(mix_mag, input_ph[0].get_shape().as_list()[:2])
         acc_mag = Utils.pad_freqs(acc_mag, input_ph[1].get_shape().as_list()[:2])
         drum_mag = Utils.pad_freqs(drum_mag, input_ph[2].get_shape().as_list()[:2])
-
+        print()
         # Partition spectrogram into sections and append to queue, keeping in mind the input might need additional context
         for pos in range(0, acc_mag.shape[1] - output_frames + 1, output_frames):
             sess.run([enqueue_op], feed_dict={input_ph[0] : mix_mag[:,pos:pos+input_frames,np.newaxis],
@@ -118,7 +126,8 @@ def load_and_enqueue(sess, model_config, queue, enqueue_op, input_ph, song_list)
 def random_amplify(magnitude):
     '''
     Randomly amplifies or attenuates the input magnitudes
-    :param magnitude: SINGLE Magnitude spectrogram excerpt, or list of spectrogram excerpts that each have their own amplification factor
+    :param magnitude: SINGLE Magnitude spectrogram excerpt, or list of spectrogram
+    excerpts that each have their own amplification factor
     :return: Amplified magnitude spectrogram
     '''
     if isinstance(magnitude, np.ndarray):
@@ -159,17 +168,18 @@ def readAudio(audio_path, offset=0.0, duration=None, mono=True, sample_rate=None
     '''
     Reads an audio file wholly or partly, and optionally converts it to mono and changes sampling rate.
     By default, it loads the whole audio file. If the offset is set to None, the duration HAS to be not None,
-    and the offset is then randomly determined so that a random section of the audio is selected with the desired duration.
-    Optionally, the file can be zero-padded by a certain amount of seconds at the start and end before selecting this random section.
+    and the offset is then randomly determined so that a random section of the audio is selected with 
+    the desired duration. Optionally, the file can be zero-padded by a certain amount of seconds at the 
+    start and end before selecting this random section.
 
     :param audio_path: Path to audio file
-    :param offset: Position in audio file (s) where to start reading. If None, duration has to be not None, and position will be randomly determined.
+    :param offset: Position in audio file (s) where to start reading. If None, duration has to be not None, 
+    and position will be randomly determined.
     :param duration: How many seconds of audio to read
     :param mono: Convert to mono after reading
     :param sample_rate: Convert to given sampling rate if given
-    :param padding_duration: Amount of padding (s) on each side that needs to be filled up with silence if it isn't available
-    :param metadata: metadata about audio file, accelerates reading audio since duration does not need to be determined from file 
-    :return: Audio signal, Audio sample rate
+    :param padding_duration: Amount of padding (s) on each side that needs to be filled up with silence
+    :param metadata: metadata about audio file, accelerates reading audio
     '''
 
     if os.path.splitext(audio_path)[1][1:].lower() == "mp3":  # If its an MP3, call ffmpeg with offset and duration parameters
@@ -188,17 +198,23 @@ def readAudio(audio_path, offset=0.0, duration=None, mono=True, sample_rate=None
         if offset is None:  # In this case, select random section of audio file
             assert (duration is not None)
             max_start_pos = audio_duration+2*padding_duration-duration
-            if (max_start_pos <= 0.0):  # If audio file is longer than duration of desired section, take all of it, will be padded later
-                print("WARNING: Audio file " + audio_path + " has length " + str(audio_duration) + " but is expected to be at least " + str(duration))
-                return librosa.load(audio_path, sample_rate, mono, res_type='kaiser_fast')  # Return whole audio file
-            start_pos = np.random.uniform(0.0,max_start_pos) # Otherwise randomly determine audio section, taking padding on both sides into account
+            # If audio file is longer than duration of desired section, take all of it, will be padded later
+            if (max_start_pos <= 0.0):  
+                print("WARNING: Audio file " + audio_path + " has length " + \
+                        str(audio_duration) + " but is expected to be at least " + str(duration))
+
+                return librosa.load(audio_path, sample_rate, mono, res_type='kaiser_fast')
+
+            # Otherwise randomly determine audio section, taking padding on both sides into account
+            start_pos = np.random.uniform(0.0,max_start_pos) 
             offset = max(start_pos - padding_duration, 0.0) # Read from this position in audio file
             pad_front_duration = max(padding_duration - start_pos, 0.0)
         assert (offset is not None)
 
         if duration is not None: # Adjust duration if it overlaps with end of track
             pad_back_duration = max(offset + duration - audio_duration, 0.0)
-            duration = duration - pad_front_duration - pad_back_duration # Subtract padding from the amount we have to read from file
+            # Subtract padding from the amount we have to read from file
+            duration = duration - pad_front_duration - pad_back_duration 
         else: # None duration: Read from offset to end of file
             duration = audio_duration - offset
 
@@ -242,10 +258,14 @@ def readAudio(audio_path, offset=0.0, duration=None, mono=True, sample_rate=None
         if offset is None:  # In this case, select random section of audio file
             assert (duration is not None)
             max_start_pos = inf.frames + 2 * pad_frames - num_frames
-            if (max_start_pos <= 0):  # If audio file is longer than duration of desired section, take all of it, will be padded later
-                print("WARNING: Audio file " + audio_path + " has frames  " + str(inf.frames) + " but is expected to be at least " + str(num_frames))
-                return librosa.load(audio_path, sample_rate, mono, res_type='kaiser_fast')  # Return whole audio file
-            start_pos = np.random.randint(0, max_start_pos)  # Otherwise randomly determine audio section, taking padding on both sides into account
+              # If audio file is longer than duration of desired section, take all of it, will be padded later
+            if (max_start_pos <= 0):
+                print("WARNING: Audio file " + audio_path + " has frames  " + str(inf.frames) + \
+                                                " but is expected to be at least " + str(num_frames))
+                # Return whole audio file
+                return librosa.load(audio_path, sample_rate, mono, res_type='kaiser_fast')
+            # Otherwise randomly determine audio section, taking padding on both sides into account
+            start_pos = np.random.randint(0, max_start_pos)  
             start_frame = max(start_pos - pad_frames, 0)  # Read from this position in audio file
             pad_front_frames = max(pad_frames - start_pos, 0)
         else:
@@ -294,21 +314,30 @@ def readAudio(audio_path, offset=0.0, duration=None, mono=True, sample_rate=None
         return audio, audio_sr, centre_start_frame, centre_end_frame
 
 # Return a 2d numpy array of the spectrogram
-def audioFileToSpectrogram(audioIn, fftWindowSize=1024, hopSize=512, offset=0.0, duration=None, expected_sr=None, buffer=False, padding_duration=0.0, metadata=None):
+def audioFileToSpectrogram(audioIn, 
+                            fftWindowSize=1024, 
+                            hopSize=512, 
+                            offset=0.0, 
+                            duration=None, 
+                            expected_sr=None, 
+                            buffer=False, 
+                            padding_duration=0.0, 
+                            metadata=None
+                            ):
     '''
-    Audio to FFT magnitude and phase conversion. Input can be a filepath to an audio file or a numpy array directly.
-    By default, the whole audio is used for conversion. By setting duration to the desired number of seconds to be read from the audio file,
-    reading can be sped up.
+    Audio to FFT magnitude and phase conversion. Input can be a filepath to an audio file or a numpy array.
+    By default, the whole audio is used for conversion. By setting duration to the desired
+    number of seconds to be read from the audio file, reading can be sped up.
     For accelerating reading, the buffer option can be activated so that a numpy filedump of the magnitudes
-    and phases is created after processing and loaded the next time it is requested.
-    :param audioIn: 
-    :param fftWindowSize: 
-    :param hopSize: 
-    :param offset: 
-    :param duration: 
-    :param expected_sr: 
-    :param buffer: 
-    :return: 
+    and phases is created aftr processing and loaded the next time it is requested.
+    :param audioIn:
+    :param fftWindowSize:
+    :param hopSize:
+    :param offset:
+    :param duration:
+    :param expected_sr:
+    :param buffer:
+    :return:
     '''
 
     writeNumpy = False
@@ -322,7 +351,8 @@ def audioFileToSpectrogram(audioIn, fftWindowSize=1024, hopSize=512, offset=0.0,
                 except Exception as e: # In case loading did not work, remember and overwrite file later
                     print("Could not load " + audioIn + ".npy. Loading audio again and recreating npy file!")
                     writeNumpy = True
-        audio, sample_rate, _ , _= readAudio(audioIn, duration=duration, offset=offset, sample_rate=expected_sr, padding_duration=padding_duration, metadata=metadata) # If no buffering, read audio file
+        audio, sample_rate, _ , _= readAudio(audioIn, duration=duration, offset=offset, \
+                                sample_rate=expected_sr, padding_duration=padding_duration, metadata=metadata)
     else: # Input is already a numpy array
         assert(expected_sr is None and duration is None and offset == 0.0) # Make sure no other options are active
         audio = audioIn
@@ -341,9 +371,10 @@ def audioFileToSpectrogram(audioIn, fftWindowSize=1024, hopSize=512, offset=0.0,
 
 def add_audio(audio_list, path_postfix):
     '''
-    Reads in a list of audio files, sums their signals, and saves them in new audio file which is named after the first audio file plus a given postfix string
+    Reads in a list of audio files, sums their signals, and saves them in new audio file which 
+    is named after the first audio file plus a given postfix string
     :param audio_list: List of audio file paths
-    :param path_postfix: Name to append to the first given audio file path in audio_list which is then used as save destination
+    :param path_postfix: Name to append to the first given audio file path in audio_list, used as save path.
     :return: Audio file path where the sum signal was saved
     '''
     save_path = audio_list[0] + "_" + path_postfix + ".wav"
@@ -355,7 +386,7 @@ def add_audio(audio_list, path_postfix):
             else:
                 audio += instrument_audio
         if np.min(audio) < -1.0 or np.max(audio) > 1.0:
-            print("WARNING: Mixing tracks together caused the result to have sample values outside of [-1,1]. Clipping those values")
+            print("WARNING: Mixing tracks together caused the result to have sample values outside of [-1,1]")
             audio = np.minimum(np.maximum(audio, -1.0), 1.0)
 
         librosa.output.write_wav(save_path, audio, sr)
@@ -388,7 +419,7 @@ def spectrogramToAudioFile(magnitude, fftWindowSize, hopSize, phaseIterations=10
     :param phaseIterations: Number of Griffin-Lim iterations to recover phase
     :param phase: If given, starts ISTFT with this particular phase matrix
     :param length: If given, audio signal is clipped/padded to this number of frames
-    :return: 
+    :return:
     '''
     if phase is not None:
         if phaseIterations > 0:
@@ -411,12 +442,13 @@ def reconPhase(magnitude, fftWindowSize, hopSize, phaseIterations=10, initPhase=
     :param phaseIterations: Number of Griffin-Lim iterations to recover phase
     :param initPhase: If given, starts reconstruction with this particular phase matrix
     :param length: If given, audio signal is clipped/padded to this number of frames
-    :return: 
+    :return:
     '''
     for i in range(phaseIterations):
         if i == 0:
             if initPhase is None:
-                reconstruction = np.random.random_sample(magnitude.shape) + 1j * (2 * np.pi * np.random.random_sample(magnitude.shape) - np.pi)
+                reconstruction = np.random.random_sample(magnitude.shape) + 1j * \
+                                (2 * np.pi * np.random.random_sample(magnitude.shape) - np.pi)
             else:
                 reconstruction = np.exp(initPhase * 1j) # e^(j*phase), so that angle => phase
         else:

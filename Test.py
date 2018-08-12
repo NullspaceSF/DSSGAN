@@ -11,7 +11,8 @@ import Models.Unet
 from mir_eval.separation import validate, bss_eval_sources
 
 def alpha_snr(target, estimate):
-    # Compute SNR: 10 log_10 ( ||s_target||^2 / ||s_target - alpha * s_estimate||^2 ), but scale target to get optimal SNR (opt. wrt. alpha)
+    # Compute SNR: 10 log_10 ( ||s_target||^2 / ||s_target - alpha * s_estimate||^2 ), 
+    # but scale target to get optimal SNR (opt. wrt. alpha)
     # Optimal alpha is Sum_i=1(s_target_i * s_estimate_i) / Sum_i=1 (s_estimate_i ^ 2) = inner_prod / estimate_power
     estimate_power = np.sum(np.square(estimate))
     target_power = np.sum(np.square(target))
@@ -27,7 +28,7 @@ def bss_evaluate(model_config, dataset, load_model):
     :param model_config: Separation network configuration required to build symbolic computation graph of network
     :param dataset: Test dataset
     :param load_model: Path to separator model checkpoint containing the network weights
-    :return: Dict containing evaluation metrics
+    :return: Dict containing evaluation metrics, wav files of predicted drum and acc are written to results directory
     '''
     # Determine input and output shapes, if we use U-net as separator
     track_number = 1
@@ -39,10 +40,12 @@ def bss_evaluate(model_config, dataset, load_model):
     separator_func = separator_class.get_output
 
     # Placeholders and input normalisation
-    input_ph, queue, [mix_context, acc, drums] = Input.get_multitrack_input(sep_output_shape[1:], 1, name="input_batch", input_shape=sep_input_shape[1:])
+    input_ph, queue, [mix_context, acc, drums] = Input.get_multitrack_input(sep_output_shape[1:],
+                                                1, name="input_batch", input_shape=sep_input_shape[1:])
 
     mix = Input.crop(mix_context, sep_output_shape)
-    mix_norm, mix_context_norm, acc_norm, drums_norm = Input.norm(mix), Input.norm(mix_context), Input.norm(acc), Input.norm(drums)
+    mix_norm, mix_context_norm, acc_norm, drums_norm = Input.norm(mix), Input.norm(mix_context), \
+                                                        Input.norm(acc), Input.norm(drums)
 
     print("Testing...")
 
@@ -84,7 +87,8 @@ def bss_evaluate(model_config, dataset, load_model):
         # Load mixture and pad it so that output sources have the same length after STFT/ISTFT
         mix_audio, mix_sr = librosa.load(multitrack[0].path, sr=model_config["expected_sr"])
         mix_length = len(mix_audio)
-        mix_audio_pad = librosa.util.fix_length(mix_audio, mix_length + model_config["num_fft"] // 2) # Pad input so that ISTFT later leads to same-length audio
+        # Pad input so that ISTFT later leads to same-length audio
+        mix_audio_pad = librosa.util.fix_length(mix_audio, mix_length + model_config["num_fft"] // 2) 
         mix_mag, mix_ph = Input.audioFileToSpectrogram(mix_audio_pad, model_config["num_fft"], model_config["num_hop"])
         source_time_frames = mix_mag.shape[1]
 
@@ -95,13 +99,13 @@ def bss_evaluate(model_config, dataset, load_model):
         input_time_frames = sep_input_shape[2]
         output_time_frames = sep_output_shape[2]
 
-        # Pad mixture spectrogram across time at beginning and end so that neural network can make prediction at the beginning and end of signal
+        # Pad mix spectrogram across time at beg and end so network can make prediction at the beginning and end of signal
         pad_time_frames = (input_time_frames - output_time_frames) / 2
         mix_mag = np.pad(mix_mag, [(0,0), (pad_time_frames, pad_time_frames)], mode="constant", constant_values=0.0)
 
         # Iterate over mixture magnitudes, fetch network prediction
         for source_pos in range(0,source_time_frames,output_time_frames):
-            # If this output patch would reach over the end of the source spectrogram, set it so we predict the very end of the output, then stop
+            # If output patch reaches over the end of source spectrogram, set it so we predict at end of the output, then stop
             if source_pos + output_time_frames > source_time_frames:
                 source_pos = source_time_frames - output_time_frames
 
@@ -119,8 +123,11 @@ def bss_evaluate(model_config, dataset, load_model):
             drums_pred_mag[:,source_pos:source_pos + output_time_frames] = drums_mag_part[0,:-1,:,0]
 
         # Spectrograms to audio, using mixture phase
-        acc_pred_audio = Input.spectrogramToAudioFile(acc_pred_mag, model_config["num_fft"], model_config["num_hop"], phase=mix_ph, length=mix_length, phaseIterations=0)
-        drums_pred_audio = Input.spectrogramToAudioFile(drums_pred_mag, model_config["num_fft"], model_config["num_hop"], phase=mix_ph, length=mix_length, phaseIterations=0)
+        acc_pred_audio = Input.spectrogramToAudioFile(acc_pred_mag, model_config["num_fft"],
+                         model_config["num_hop"], phase=mix_ph, length=mix_length, phaseIterations=0)
+        
+        drums_pred_audio = Input.spectrogramToAudioFile(drums_pred_mag, model_config["num_fft"],
+                         model_config["num_hop"], phase=mix_ph, length=mix_length, phaseIterations=0)
 
         # Load original sources
         if isinstance(multitrack[1], float):
@@ -132,7 +139,7 @@ def bss_evaluate(model_config, dataset, load_model):
         else:
             drum_audio, _ = librosa.load(multitrack[2].path, sr=model_config["expected_sr"])
 
-        # Check if any reference source is completely silent, if so, inject some very slight noise into it to avoid problems during SDR calculation with zero signals
+        # Check if any reference source is completely silent, if so, inject some very slight noise to avoid problems during SDR
         reference_zero = False
         if np.max(np.abs(acc_audio)) == 0.0:
             acc_audio += np.random.uniform(-1e-10, 1e-10, size=acc_audio.shape)
@@ -142,8 +149,10 @@ def bss_evaluate(model_config, dataset, load_model):
             reference_zero = True
 
         # Evaluate BSS according to MIREX separation method # http://www.music-ir.org/mirex/wiki/2016:Singing_Voice_Separation
-        ref_sources = np.vstack([acc_audio, drum_audio]) #/ np.linalg.norm(acc_audio + drum_audio) # Normalized audio
-        pred_sources = np.vstack([acc_pred_audio, drums_pred_audio]) #/ np.linalg.norm(acc_pred_audio + drums_pred_audio) # Normalized estimates
+        #/ np.linalg.norm(acc_audio + drum_audio) # Normalized audio
+        ref_sources = np.vstack([acc_audio, drum_audio])
+        #/ np.linalg.norm(acc_pred_audio + drums_pred_audio) # Normalized estimates
+        pred_sources = np.vstack([acc_pred_audio, drums_pred_audio])
         validate(ref_sources, pred_sources)
         scores = bss_eval_sources(ref_sources, pred_sources, compute_permutation=False)
 
@@ -157,7 +166,7 @@ def bss_evaluate(model_config, dataset, load_model):
             mix_scores = bss_eval_sources(ref_sources, mix_ref, compute_permutation=False)
             norm_scores = np.array(scores) - np.array(mix_scores)
 
-            # Compute SNR: 10 log_10 ( ||s_target||^2 / ||s_target - alpha * s_estimate||^2 ), but scale target to get optimal SNR (opt. wrt. alpha)
+            # Compute SNR: 10 log_10 ( ||s_target||^2 / ||s_target - alpha * s_estimate||^2 ), scale target for optimal SNR
             drums_snr = alpha_snr(drum_audio, drums_pred_audio)
             acc_snr = alpha_snr(acc_audio, acc_pred_audio)
             drums_ref_snr = alpha_snr(drum_audio, mix_audio)
@@ -177,14 +186,14 @@ def bss_evaluate(model_config, dataset, load_model):
             fn = dirpath + "tr_" + track_number + "_acc.wav"
             librosa.output.write_wav(fn, acc_pred_audio, sr=model_config["expected_sr"])
         except Exception as e:
-            print("Failed to write wav files, error: " + e.message + e.args)
+            print("Failed to write wav files, error: " + str(e))
 
         track_number = track_number + 1
     try:
-        with open(dirpath + str(experiment_id) + "BSS_eval.pkl", "wb") as file:
+        with open(dirpath + '/' + str(experiment_id) + "BSS_eval.pkl", "wb") as file:
             pickle.dump(song_scores, file)
     except Exception as e:
-            print("Failed to write score files, error: " + e.message + e.args)
+            print("Failed to write score files, error: " + str(e))
 
 
     #Close session, clear computational graph

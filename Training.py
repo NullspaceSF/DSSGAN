@@ -16,7 +16,7 @@ import logging
 
 logger = multiprocessing.log_to_stderr()
 logger.setLevel(logging.DEBUG)
-logger.warning('-----wtf?------')
+logger.warning('-----Warning------')
 
 # logger = logging.getLogger('scope.name')
 #
@@ -40,7 +40,7 @@ logger.warning('-----wtf?------')
 ex = Experiment('Drum_Source_Separation')
 experiment_id = np.random.randint(0, 10000)
 
-
+# sacred stores all config variable so they are available in any scope, this is why some parameters are not passed to functions
 @ex.config
 def cfg():
     model_config = {"model_base_dir" : "checkpoints", # Base folder for model checkpoints
@@ -54,15 +54,15 @@ def cfg():
                     "init_unsup_sep_lr" : 5e-5, # Unsupervised separator learning rate
                     "epoch_it" : 1000, # Number of supervised separator steps per epoch
                     "num_disc": 5,  # Number of discriminator iterations per separator update
-                    "num_frames" : 64, # DESIRED number of time frames in the spectrogram per sample (this can be increased when using U-net due to its limited output sizes)
+                    "num_frames" : 64, # DESIRED number of time frames in the spectrogram per sample
                     "num_fft" : 512, # FFT Size
                     "num_hop" : 256, # FFT Hop size
-                    'expected_sr' : 16384, # Downsample all audio input to this sampling rate
+                    'expected_sr' : 8192, # Downsample all audio input to this sampling rate
                     'mono_downmix' : True, # Whether to downsample the audio input
                     'cache_size' : 72, # was 64 Number of audio excerpts that are cached to build batches from !!!64!!
                     'num_workers' : 4, # was 4 Number of processes reading audio and filling up the cache
                     "duration" : 10, # Duration in seconds of the audio excerpts in the cache (excluding input context)
-                    'min_replacement_rate' : .3,  # roughly: how many cache entries to replace at least per batch on average. Can be fractional
+                    'min_replacement_rate' : .3, # how many cache entries to replace at least per batch on average. 
                     'num_layers' : 4, # How many U-Net layers
                     }
     experiment_id = experiment_id
@@ -78,7 +78,9 @@ def test(model_config, audio_list, model_folder, load_model):
     separator_func = separator_class.get_output
 
     # Placeholders and input normalisation
-    input_ph, queue, [mix_context, acc, drums] = Input.get_multitrack_input(sep_output_shape[1:], model_config["batch_size"], name="input_batch", input_shape=sep_input_shape[1:])
+    input_ph, queue, [mix_context, acc, drums] = Input.get_multitrack_input(sep_output_shape[1:], \
+                    model_config["batch_size"], name="input_batch", input_shape=sep_input_shape[1:])
+
     enqueue_op = queue.enqueue(input_ph)
 
     mix = Input.crop(mix_context, sep_output_shape)
@@ -151,15 +153,17 @@ def test(model_config, audio_list, model_folder, load_model):
 def train(model_config, sup_dataset, model_folder, unsup_dataset=None, load_model=None):
     # Determine input and output shapes
     freq_bins = model_config["num_fft"] / 2 + 1  # Make even number of freq bins
-    disc_input_shape = [model_config["batch_size"], freq_bins - 1, model_config["num_frames"],1]  # Shape of discriminator input
+    disc_input_shape = [model_config["batch_size"], freq_bins - 1, model_config["num_frames"],1]  # Shape of disc input
 
     separator_class = Models.Unet.Unet(model_config["num_layers"])
     sep_input_shape, sep_output_shape = separator_class.getUnetPadding(np.array(disc_input_shape))
     separator_func = separator_class.get_output
 
     # Batch input workers
-    # Creating the batch generators
-    padding_durations = [float(sep_input_shape[2] - sep_output_shape[2]) * model_config["num_hop"] / model_config["expected_sr"] / 2.0, 0, 0]  # Input context that the input audio has to be padded with while reading audio files
+    # Creating the batch generators # # Input context that the input audio has to be padded with while reading audio files
+    padding_durations = [float(sep_input_shape[2] - sep_output_shape[2]) * model_config["num_hop"] / \
+                        model_config["expected_sr"] / 2.0, 0, 0]
+
     sup_batch_gen = batchgen.BatchGen_Paired(
         model_config,
         sup_dataset,
@@ -193,12 +197,14 @@ def train(model_config, sup_dataset, model_folder, unsup_dataset=None, load_mode
     # Placeholders and input normalisation
     mix_context,acc,drums = Input.get_multitrack_placeholders(sep_output_shape, sep_input_shape, "sup")
     mix = Input.crop(mix_context, sep_output_shape)
-    mix_norm, mix_context_norm, acc_norm, drums_norm = Input.norm(mix), Input.norm(mix_context), Input.norm(acc), Input.norm(drums)
+    mix_norm, mix_context_norm, acc_norm, drums_norm = Input.norm(mix), \
+                Input.norm(mix_context), Input.norm(acc), Input.norm(drums)
 
     if unsup_dataset is not None:
         mix_context_u,acc_u,drums_u = Input.get_multitrack_placeholders(sep_output_shape, sep_input_shape, "unsup")
         mix_u = Input.crop(mix_context_u, sep_output_shape)
-        mix_norm_u, mix_context_norm_u, acc_norm_u, drums_norm_u = Input.norm(mix_u), Input.norm(mix_context_u), Input.norm(acc_u), Input.norm(drums_u)
+        mix_norm_u, mix_context_norm_u, acc_norm_u, drums_norm_u = Input.norm(mix_u), \
+                    Input.norm(mix_context_u), Input.norm(acc_u), Input.norm(drums_u)
 
     print("Training...")
 
@@ -233,7 +239,8 @@ def train(model_config, sup_dataset, model_folder, unsup_dataset=None, load_mode
     if unsup_dataset is not None:
         disc_func = Models.WGAN_Critic.dcgan
 
-        # Define real and fake inputs for both discriminators - if separator output and dsicriminator input shapes do not fit perfectly, we will do a centre crop and only discriminate that part
+        # Define real and fake inputs for both discriminators - if separator output and dsicriminator
+        # input shapes do not fit perfectly, we will do a centre crop and only discriminate that part
         acc_real_input = Input.crop(acc_norm_u, disc_input_shape)
         acc_fake_input = Input.crop(separator_acc_norm_u, disc_input_shape)
         drums_real_input = Input.crop(drums_norm_u, disc_input_shape)
@@ -243,10 +250,14 @@ def train(model_config, sup_dataset, model_folder, unsup_dataset=None, load_mode
         acc_disc_loss, acc_disc_real, acc_disc_fake, acc_grad_pen, acc_wasserstein_dist = \
             Models.WGAN_Critic.create_critic(model_config, real_input=acc_real_input, fake_input=acc_fake_input, scope="acc_disc", network_func=disc_func)
         drums_disc_loss, drums_disc_real, drums_disc_fake, drums_grad_pen, drums_wasserstein_dist = \
-            Models.WGAN_Critic.create_critic(model_config, real_input=drums_real_input, fake_input=drums_fake_input, scope="drums_disc", network_func=disc_func)
+            Models.WGAN_Critic.create_critic(model_config, real_input=drums_real_input, \
+                    fake_input=drums_fake_input, scope="drums_disc", network_func=disc_func)
 
-        L_u = - tf.reduce_mean(drums_disc_fake)  - tf.reduce_mean(acc_disc_fake) # WGAN based loss for separator (L_u in paper)
-        unsup_separator_loss = model_config["alpha"] * L_u + model_config["beta"] * mask_loss_u # Unsupervised loss for separator: WGAN-based loss L_u and additive penalty term (mask loss), weighted by alpha and beta (hyperparameters)
+        # WGAN based loss for separator (L_u in paper)
+        L_u = - tf.reduce_mean(drums_disc_fake)  - tf.reduce_mean(acc_disc_fake)
+
+        # Unsupervised loss for separator: WGAN-based loss L_u and additive penalty term (mask loss), weighted by alpha and beta (hyperparameters)
+        unsup_separator_loss = model_config["alpha"] * L_u + model_config["beta"] * mask_loss_u
 
     # Supervised objective: MSE in log-normalized magnitude space
     sup_separator_loss = tf.reduce_mean(tf.square(separator_drums_norm - drums_norm)) + \
@@ -391,7 +402,7 @@ def train(model_config, sup_dataset, model_folder, unsup_dataset=None, load_mode
 def optimise(dataset, supervised):
     '''
     Performs either supervised or unsupervised training of the separation system.
-    Training stops if validation loss did not improve for a number of epochs, then final performance on test set is determined 
+    Training stops if validation loss did not improve for a number of epochs, then final performance is determined
     :param dataset: Dataset dict containing the supervised, unsupervised, valiation and test partition
     :param supervised: Boolean, whether to train supervised or semi-supervised
     :return: [path to checkpoint file of best model, test loss of best model]
@@ -408,7 +419,7 @@ def optimise(dataset, supervised):
     model_path = None
     worse_epochs = 0
     best_model_path = ""
-    while worse_epochs < 1: 
+    while worse_epochs < 1:
         print("EPOCH: " + str(epoch))
         model_path = train(sup_dataset=dataset["train_sup"], unsup_dataset=unsup_dataset, model_folder=model_folder, load_model=model_path)
         curr_loss = test(audio_list=dataset["valid"], model_folder=model_folder, load_model=model_path)

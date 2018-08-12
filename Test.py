@@ -2,10 +2,9 @@ import pickle
 import numpy as np
 import tensorflow as tf
 import librosa
-
+import os
 import Utils
 from Input import Input
-
 import Models.WGAN_Critic
 import Models.Unet
 
@@ -81,7 +80,6 @@ def bss_evaluate(model_config, dataset, load_model):
             db = 'musdb18orNIStems'
         song_info = {"Title" : filename, "Database" : db}
 
-        
 
         # Load mixture and pad it so that output sources have the same length after STFT/ISTFT
         mix_audio, mix_sr = librosa.load(multitrack[0].path, sr=model_config["expected_sr"])
@@ -172,19 +170,18 @@ def bss_evaluate(model_config, dataset, load_model):
 
         song_scores.append(song_info)
         print(song_info)
-
+        dirpath = os.path.join(os.getcwd(), 'results')
         try:
-            fn = "/home/ubuntu/results/" + "tr_" + track_number + "_drums.wav"
+            fn = dirpath + "tr_" + track_number + "_drums.wav"
             librosa.output.write_wav(fn, drums_pred_audio, sr=model_config["expected_sr"])
-            fn = "/home/ubuntu/results/" + "tr_" + track_number + "_acc.wav"
+            fn = dirpath + "tr_" + track_number + "_acc.wav"
             librosa.output.write_wav(fn, acc_pred_audio, sr=model_config["expected_sr"])
         except Exception as e:
             print("Failed to write wav files, error: " + e.message + e.args)
 
-        
         track_number = track_number + 1
     try:
-        with open("/home/ubuntu/results/" + str(experiment_id) + "BSS_eval.pkl", "wb") as file: 
+        with open(dirpath + str(experiment_id) + "BSS_eval.pkl", "wb") as file:
             pickle.dump(song_scores, file)
     except Exception as e:
             print("Failed to write score files, error: " + e.message + e.args)

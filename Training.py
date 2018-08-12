@@ -57,7 +57,7 @@ def cfg():
                     "num_frames" : 64, # DESIRED number of time frames in the spectrogram per sample (this can be increased when using U-net due to its limited output sizes)
                     "num_fft" : 512, # FFT Size
                     "num_hop" : 256, # FFT Hop size
-                    'expected_sr' : 8192, # Downsample all audio input to this sampling rate
+                    'expected_sr' : 16384, # Downsample all audio input to this sampling rate
                     'mono_downmix' : True, # Whether to downsample the audio input
                     'cache_size' : 72, # was 64 Number of audio excerpts that are cached to build batches from !!!64!!
                     'num_workers' : 4, # was 4 Number of processes reading audio and filling up the cache

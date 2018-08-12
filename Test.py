@@ -31,6 +31,7 @@ def bss_evaluate(model_config, dataset, load_model):
     :return: Dict containing evaluation metrics
     '''
     # Determine input and output shapes, if we use U-net as separator
+    track_number = 1
     freq_bins = model_config["num_fft"] / 2 + 1  # Make even number of freq bins
     disc_input_shape = [1, freq_bins - 1, model_config["num_frames"],1]  # Shape of discriminator input
 
@@ -67,7 +68,7 @@ def bss_evaluate(model_config, dataset, load_model):
 
     for multitrack in dataset[8:15]:
         filename = multitrack[0].path
-        print("Evaluating file " + filename)
+        print("Evaluating file: " + filename + "Track number: " + track_number)
         if filename.__contains__("DSD100"):
             db = "DSD100"
         elif filename.__contains__("Kala"):
@@ -76,7 +77,11 @@ def bss_evaluate(model_config, dataset, load_model):
             db = "CCMixter"
         elif filename.__contains__("MedleyDB"):
             db = "MedleyDB"
+        else:
+            db = 'musdb18orNIStems'
         song_info = {"Title" : filename, "Database" : db}
+
+        
 
         # Load mixture and pad it so that output sources have the same length after STFT/ISTFT
         mix_audio, mix_sr = librosa.load(multitrack[0].path, sr=model_config["expected_sr"])
@@ -138,7 +143,7 @@ def bss_evaluate(model_config, dataset, load_model):
             drum_audio += np.random.uniform(-1e-10, 1e-10, size=drum_audio.shape)
             reference_zero = True
 
-        # Evaluate BSS according to MIREX drums separation method # http://www.music-ir.org/mirex/wiki/2016:Singing_Voice_Separation
+        # Evaluate BSS according to MIREX separation method # http://www.music-ir.org/mirex/wiki/2016:Singing_Voice_Separation
         ref_sources = np.vstack([acc_audio, drum_audio]) #/ np.linalg.norm(acc_audio + drum_audio) # Normalized audio
         pred_sources = np.vstack([acc_pred_audio, drums_pred_audio]) #/ np.linalg.norm(acc_pred_audio + drums_pred_audio) # Normalized estimates
         validate(ref_sources, pred_sources)
@@ -168,10 +173,24 @@ def bss_evaluate(model_config, dataset, load_model):
         song_scores.append(song_info)
         print(song_info)
 
-    # with open("_BSS_eval.pkl", "wb") as file: #TODO proper filename
-    #     pickle.dump(song_scores, file)
+        try:
+            fn = "/home/ubuntu/results/" + "tr_" + track_number + "_drums.wav"
+            librosa.output.write_wav(fn, drums_pred_audio, sr=model_config["expected_sr"])
+            fn = "/home/ubuntu/results/" + "tr_" + track_number + "_acc.wav"
+            librosa.output.write_wav(fn, acc_pred_audio, sr=model_config["expected_sr"])
+        except Exception as e:
+            print("Failed to write wav files, error: " + e.message + e.args)
 
-    # Close session, clear computational graph
+        
+        track_number = track_number + 1
+    try:
+        with open("/home/ubuntu/results/" + str(experiment_id) + "BSS_eval.pkl", "wb") as file: 
+            pickle.dump(song_scores, file)
+    except Exception as e:
+            print("Failed to write score files, error: " + e.message + e.args)
+
+
+    #Close session, clear computational graph
     sess.close()
     tf.reset_default_graph()
 

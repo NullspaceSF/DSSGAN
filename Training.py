@@ -36,9 +36,9 @@ logger.warning('-----wtf?------')
 # logger.setLevel('DEBUG')
 
 
-
+# experiment name and id for sacred
 ex = Experiment('Drum_Source_Separation')
-experiment_id = 555 #np.random.randint(0, 10000)
+experiment_id = np.random.randint(0, 10000)
 
 
 @ex.config
@@ -54,18 +54,18 @@ def cfg():
                     "init_unsup_sep_lr" : 5e-5, # Unsupervised separator learning rate
                     "epoch_it" : 1000, # Number of supervised separator steps per epoch
                     "num_disc": 5,  # Number of discriminator iterations per separator update
-                    "num_frames" : 128, # DESIRED number of time frames in the spectrogram per sample (this can be increased when using U-net due to its limited output sizes)
+                    "num_frames" : 64, # DESIRED number of time frames in the spectrogram per sample (this can be increased when using U-net due to its limited output sizes)
                     "num_fft" : 512, # FFT Size
                     "num_hop" : 256, # FFT Hop size
-                    'expected_sr' : 16384, # Downsample all audio input to this sampling rate
+                    'expected_sr' : 8192, # Downsample all audio input to this sampling rate
                     'mono_downmix' : True, # Whether to downsample the audio input
                     'cache_size' : 72, # was 64 Number of audio excerpts that are cached to build batches from !!!64!!
                     'num_workers' : 4, # was 4 Number of processes reading audio and filling up the cache
-                    "duration" : 5, # Duration in seconds of the audio excerpts in the cache (excluding input context)
+                    "duration" : 10, # Duration in seconds of the audio excerpts in the cache (excluding input context)
                     'min_replacement_rate' : .3,  # roughly: how many cache entries to replace at least per batch on average. Can be fractional
                     'num_layers' : 4, # How many U-Net layers
                     }
-    experiment_id = 555
+    experiment_id = experiment_id
 
 
 @ex.capture
@@ -408,7 +408,7 @@ def optimise(dataset, supervised):
     model_path = None
     worse_epochs = 0
     best_model_path = ""
-    while worse_epochs < 1: #TODO: change back to 1!
+    while worse_epochs < 1: 
         print("EPOCH: " + str(epoch))
         model_path = train(sup_dataset=dataset["train_sup"], unsup_dataset=unsup_dataset, model_folder=model_folder, load_model=model_path)
         curr_loss = test(audio_list=dataset["valid"], model_folder=model_folder, load_model=model_path)
@@ -433,62 +433,13 @@ def dsd_100_experiment(model_config):
             dataset = pickle.load(file)
         print("Loaded dataset from pickle!")
     else:
-        '''
-        Create dataset structure comprised of supervised, unsupervised, validation and test partitions
-        
-        # MODIFY BELOW TO INSERT DSD100, MedleyDB, CCMixter datasets.
-        # Each returned item from the dataset reading function (dsd_train, dsd_test, mdb, ccm, ikala) has to be of the following structure:
-        # List of 3 elements, each of which is a List of Sample objects (instantiations of the Sample class -
-        # you need to create these as part of your dataset reading function). Each sample represents an audio track
-        # The list of 3 elements has to be in order: A list of mixtures, accompaniments and drums, in that order.
-        # Example: dsd_train[1] - List of Sample objects, each sample object represents an accompaniment audio file
-        # The lists have to be matched: The mixture audio at dsd_train[0][20] has to have its accompaniment at dsd_train[1][20] and drums at dsd_train[2][20]
-        # This means that for iKala and MedleyDB you need to generate separate vocal and accompaniment audio manually first!
-        # For MedleyDB, we mix together stems with/without drums to generate the drum and accompaniment track respectively, then add those signals together for the mixture track, to ensure mix=acc+drums
-_       '''
+        print('No pkl file found, please load data')
 
-        ###################### MODIFY BELOW
-
-        # dsd_train, dsd_test = Datasets.getDSDFilelist("DSD100.xml")
-        # mdb = Datasets.getMedleyDB("MedleyDB.xml")
-        # ccm = Datasets.getCCMixter("CCMixter.xml")
-        # ikala = Datasets.getIKala("iKala.xml")
-        ###################### MODIFY ABOVE
-
-        # Draw randomly from datasets
-        # dataset = dict()
-        # dataset["train_sup"] = dsd_train # 50 training tracks from DSD100 as supervised dataset
-        # dataset["train_unsup"] = [] # Initialise unsupervised dateaset structure (fill up later)
-        # dataset["valid"] = [dsd_test[0][:25], dsd_test[1][:25], dsd_test[2][:25]] # Validation and test contains 25 songs of DSD each, plus more (added later)
-        # dataset["test"] = [dsd_test[0][25:], dsd_test[1][25:], dsd_test[2][25:]]
-
-        # Go through MedleyDB, CCMixter, iKala
-        # for ds in [mdb, ccm, ikala]:
-        #     num = len(ds[0]) // 3
-        #     # Split dataset in three equal-sized parts, and assign each to the unsupervised dataset, validation and test dataset respectively
-        #     for i in range(3):
-        #         # Only add more examples to unsupervised and test sets, since in this experiment we care about preventing overfitting to the supervised dataset
-        #         dataset["train_unsup"][i].extend(ds[i][:num])
-        #         dataset["valid"][i].extend(ds[i][num:2 * num])
-        #         dataset["test"][i].extend(ds[i][2 * num:])
-
-        ### DELETE ALL OF THE ABOVE IF YOU WANT TO  USE YOUR OWN DATASETS OR PARTITIONING,
-        ### AND READ IN YOUR OWN DATASET OBJECTS ACCORDING TO THE RULES SHOWN ABOVE, THEN ASSIGN THEM TO THE DATASET DICT WITH
-        ### ENTRIES train_sup, valid and test, RESPECTIVELY.
-
-        #Zip up all paired dataset partitions so we have (mixture, accompaniment, drums) tuples
-        # dataset["train_sup"] = zip(dataset["train_sup"][0], dataset["train_sup"][1], dataset["train_sup"][2])
-        # dataset["valid"] = zip(dataset["valid"][0], dataset["valid"][1], dataset["valid"][2])
-        # dataset["test"] = zip(dataset["test"][0], dataset["test"][1], dataset["test"][2])
-
-        # with open('dataset.pkl', 'wb') as file:
-        #     pickle.dump(dataset, file)
-        # print("Created dataset structure")
 
     # Optimize in a +supervised fashion until validation loss worsens
-    sup_model_path = "/home/ubuntu/AAS/checkpoints/111_sup/111_sup-3003"
-    # sup_model_path, sup_loss = optimise(dataset=dataset, supervised=True)
-    #print("Supervised training finished! Saved model at " + sup_model_path + ". Performance: " + str(sup_loss))
+    #sup_model_path = "/home/ubuntu/AAS/checkpoints/111_sup/111_sup-3003"
+    sup_model_path, sup_loss = optimise(dataset=dataset, supervised=True)
+    print("Supervised training finished! Saved model at " + sup_model_path + ". Performance: " + str(sup_loss))
     sup_scores = Test.bss_evaluate(model_config, dataset=dataset["test"],load_model=sup_model_path)
     print(sup_scores)
 

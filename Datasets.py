@@ -50,38 +50,8 @@ def subtract_audio(mix_list, instrument_list):
         print("Wrote accompaniment for song " + mix_list[i])
     return new_audio_list
 
-def create_sample(db_path, instrument_node):
-   path = db_path + os.path.sep + instrument_node.xpath("./relativeFilepath")[0].text
-   sample_rate = int(instrument_node.xpath("./sampleRate")[0].text)
-   channels = int(instrument_node.xpath("./numChannels")[0].text)
-   duration = float(instrument_node.xpath("./length")[0].text)
-   return Sample(path, sample_rate, channels, duration)
 
-def getDSDFilelist(xml_path):
-    tree = etree.parse(xml_path)
-    root = tree.getroot()
-    db_path = root.find("./databaseFolderPath").text
-    tracks = root.findall(".//track")
 
-    train_drums, test_drums, train_mixes, test_mixes, train_accs, test_accs = list(), list(), list(), list(), list(), list()
-
-    for track in tracks:
-        # Get mix and drum instruments
-        drums = create_sample(db_path, track.xpath(".//instrument[instrumentName='Drums']")[0])
-        mix = create_sample(db_path, track.xpath(".//instrument[instrumentName='Mix']")[0])
-        [acc_path] = subtract_audio([mix.path], [drums.path])
-        acc = Sample(acc_path, drums.sample_rate, drums.channels, drums.duration) # Accompaniment has same signal properties as drums and mix
-
-        if track.xpath("./databaseSplit")[0].text == "Training":
-            train_drums.append(drums)
-            train_mixes.append(mix)
-            train_accs.append(acc)
-        else:
-            test_drums.append(drums)
-            test_mixes.append(mix)
-            test_accs.append(acc)
-
-    return [train_mixes, train_accs, train_drums], [test_mixes, test_accs, test_drums]
 
 
 # TODO: Investigate ccmixter and difficulty of generating xml with drums instead of vocals

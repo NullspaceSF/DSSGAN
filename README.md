@@ -32,6 +32,8 @@ A sample_list is a list with each element being a tuple containing three Sample 
 
 The entry for "train_unsup" is different since recordings are not paired - instead, this entry is a list containing three lists. These contain mixtures, source1 and source2 Sample objects respectively. The lists can be of different length. since they are not paired.
 
+
+
 # References
 More details on the separation method can be found in the following article:
 
@@ -83,6 +85,7 @@ We separate voice, bass, drums and accompaniment using DSD100 dataset comprising
 
  <a href="http://www.music-ir.org/mirex/wiki/2016:Singing_Voice_Separation_Results">MIREX Singing voice separation 2016</a> and <a href="http://mac.citi.sinica.edu.tw/ikala/">iKala</a> dataset. 
 
+#[Presentation_Slides](./Drum%20Source%20Separation%20via%20Generative%20Adversarial%20Network.pdf) can be found here.
 
 
 # Training models

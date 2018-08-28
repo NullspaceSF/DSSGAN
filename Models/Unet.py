@@ -5,9 +5,10 @@ import numpy as np
 
 class Unet:
     '''
-    U-Net separator network for singing voice separation.
-    Takes in the mixture magnitude spectrogram and return estimates of the accompaniment and voice magnitude spectrograms.
-    Uses valid convolutions, so it predicts for the centre part of the input - only certain input and output shapes are therefore possible (see getUnetPadding)
+    U-Net separator network for drum source separation.
+    Takes in the mixture magnitude spectrogram and return estimates of the accompaniment and drum magnitude spectrograms.
+    Uses valid convolutions, so it predicts for the centre part of the input - 
+    only certain input and output shapes are therefore possible (see getUnetPadding)
     '''
 
     def __init__(self, num_layers):
@@ -20,7 +21,8 @@ class Unet:
 
     def getUnetPadding(self, shape):
         '''
-        Calculates the required amounts of padding along each axis of the input and output, so that the Unet works and has the given shape as output shape
+        Calculates the required amounts of padding along each axis of the input and output, 
+        so that the Unet works and has the given shape as output shape
         :param shape: Desired output shape 
         :return: Padding along each axis (total): (Input frequency, input time)
         '''
@@ -30,10 +32,10 @@ class Unet:
         for i in range(self.num_layers):
             rem += 2 # Conv
             if np.sum(rem % 2) > 0:
-                print("Warning: U-Net cannot be constructed with desired architecture and output shape - Padding output accordingly")
+                print("Warning: U-Net cannot be desired architecture and output shape - Padding output accordingly")
                 rem = np.asarray(rem, dtype=np.float32)
             rem = (rem / 2) #Transposed-up-conv
-        # Round resulting feature map dimensions up to nearest EVEN integer (even because up-convolution by factor two is needed)
+        # Round resulting feature map dimensions up to nearest EVEN integer (even because up-conv by factor 2 needed)
         x = np.asarray(np.ceil(rem),dtype=np.int64)
         x += (x % 2)
 
@@ -56,7 +58,7 @@ class Unet:
         Creates symbolic computation graph of the U-Net for a given input batch
         :param input: Input batch of mixtures, 4D tensor [batch_size, freqs, time_frames, 1]
         :param reuse: Whether to create new parameter variables or reuse existing ones
-        :return: U-Net output: Log-normalized accompaniment and voice magnitudes as two 4D tensors
+        :return: U-Net output: Log-normalized accompaniment and drum magnitudes as two 4D tensors
         '''
         NUM_INITIAL_FILTERS = 16
         with tf.variable_scope("separator", reuse=reuse):
@@ -84,6 +86,6 @@ class Unet:
             current_layer = Utils.crop_and_concat(input, current_layer) # Passing the input to the final feature map helps especially when we output sources directly
 
             acc_norm = tf.layers.conv2d(current_layer, 1, 1, activation=tf.nn.relu, padding='valid')  # 0
-            voice_norm = tf.layers.conv2d(current_layer, 1, 1, activation=tf.nn.relu, padding='valid')  # 0
+            drums_norm = tf.layers.conv2d(current_layer, 1, 1, activation=tf.nn.relu, padding='valid')  # 0
 
-            return acc_norm, voice_norm
+            return acc_norm, drums_norm

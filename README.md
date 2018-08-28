@@ -38,10 +38,14 @@ You may need to use a batch size that is an even divisor of the lengths of each 
 
 ## Requirements
 
-To run the code, the following Python packages are needed. THE GPU version for Tensorflow due to the long running times of this model. You can install them easily using 
-```pip install -r requirements.txt``` 
+To run the code, the following Python packages are needed. The GPU version for Tensorflow is needed due to the long running times of this model. You can install them easily using \
 
-after saving the below list to a text file.
+
+```pip install -r requirements.txt``` \
+
+
+
+after saving the below list to a text file.\
 
 
 ```python=2.7
@@ -54,11 +58,12 @@ lxml>=3.8.0
 mir_eval>=0.4
 scikits.audiolab>=0.11.0
 soundfile>=0.9.0
-```
+```\
 
-Note that if using an AWS p2 or p3 instance with the Amazon Deep Learning AMI, you can use the following conda environment:
-```tensorflow_p27```
-This does not require tensorflow-gpu, as it is an optimized instance that will use the CUDA GPU automatically with tensorflow
+
+Note that if using an AWS p2 or p3 instance with the Amazon Deep Learning AMI, you can use the included ```tensorflow_p27``` conda environment.
+
+This does not require the tensorflow-gpu library, as it is an optimized instance that will use the CUDA GPU automatically with standard tensorflow library
 
 
 

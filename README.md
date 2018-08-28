@@ -38,14 +38,14 @@ You may need to use a batch size that is an even divisor of the lengths of each 
 
 ## Requirements
 
-To run the code, the following Python packages are needed. The GPU version for Tensorflow is needed due to the long running times of this model. You can install them easily using \
+To run the code, the following Python packages are needed. The GPU version for Tensorflow is needed due to the long running times of this model. You can install them easily using 
 
 
-```pip install -r requirements.txt``` \
+```pip install -r requirements.txt``` 
 
 
 
-after saving the below list to a text file.\
+after saving the below list to a text file.
 
 
 ```python=2.7
@@ -58,12 +58,10 @@ lxml>=3.8.0
 mir_eval>=0.4
 scikits.audiolab>=0.11.0
 soundfile>=0.9.0
-```\
+```
 
 
-Note that if using an AWS p2 or p3 instance with the Amazon Deep Learning AMI, you can use the included ```tensorflow_p27``` conda environment.
-
-This does not require the tensorflow-gpu library, as it is an optimized instance that will use the CUDA GPU automatically with standard tensorflow library
+Note that if using an AWS p2 or p3 instance with the Amazon Deep Learning AMI, you can use the included ```tensorflow_p27``` conda environment which does not require the tensorflow-gpu library. It is an optimized instance that will use the CUDA GPU automatically with standard tensorflow library.
 
 
 
@@ -80,9 +78,11 @@ Note that alpha and beta (hyperparameters from the paper) as loss weighting para
 
 The code is run by executing
 
-python Training.py
 
-It will train the same separator network first in a purely supervised way, and then using our semi-supervised adversarial approach. Each time, validation performance is measured regularly and early stopping is used, before the final test set performance is evaluated. For the semi-supervised approach, the additional data from dataset["train_unsup"] is used to improve performance.
+```python Training.py```
+
+
+It will train the same separator network first in a purely supervised way, and then using the semi-supervised adversarial approach. Each time, validation performance is measured regularly and early stopping is used, before the final test set performance is evaluated. For the semi-supervised approach, the additional data from ```dataset["train_unsup"]``` is used to improve performance.
 
 ## Evaluation 
 

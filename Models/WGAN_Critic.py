@@ -4,7 +4,8 @@ from Utils import LeakyReLU
 
 def create_critic(model_config, real_input, fake_input, scope, network_func):
     '''
-    Function creating the Wasserstein critic loss taking real source samples and fake (generator/separator) source samples, given a network architecture.
+    Function creating the Wasserstein critic loss taking real source samples and 
+    fake (generator/separator) source samples, given a network architecture.
     :param model_config: Experiment configuration
     :param real_input: Batch of real source samples [n_batch, freqs, t, 1]
     :param fake_input: Batch of fake source samples [n_batch, freqs, t, 1] from the separator network

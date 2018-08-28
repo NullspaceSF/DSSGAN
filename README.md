@@ -88,8 +88,11 @@ Logs are written continuously to the logs subfolder, so training can be supervis
 
 The metrics can be computed with bsseval images v3.0, as described <a href="http://bass-db.gforge.inria.fr/bss_eval/">here</a>. 
 
+## Presentation
 
-## [Presentation_Slides](./Drum%20Source%20Separation%20via%20Generative%20Adversarial%20Network.pdf) can be found here.
+Presentation slides, model diagrams, and more information about the entire project can be found [here](./Drum%20Source%20Separation%20via%20Generative%20Adversarial%20Network.pdf). 
+
+Graphic design by [ArtGravity](https://www.artgravitysf.com)
 
 
 ## References
@@ -98,7 +101,7 @@ The approach is adapted for drums and percussion from the paper "Adversarial Sem
 
 More details on the separation method can be found in the following article:
 
-arXiv:1711.00048v2
+[arXiv:1711.00048v2](https://arxiv.org/abs/1711.00048v2)
 
 
 ## License
